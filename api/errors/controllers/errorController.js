@@ -1,102 +1,142 @@
-const errorModel = require("../models/errorModel");
-// controllers/errorController.js
-const ErrorSchema = require("../models/errorSchema");
+const ErrorLog = require("../models/errorLog");
+const { validationResult } = require("express-validator");
+const mongoose = require("mongoose");
 
-class ErrorController {
-  async logError(req, res, next) {
-    try {
-      // Minimalna walidacja
-      if (!req.body.error || !req.body.error.message) {
-        return res.status(400).json({
-          success: false,
-          error: "Invalid error format",
-        });
-      }
+// GET /api/errors/health - Sprawdzenie stanu serwisu
+exports.healthCheck = async (req, res) => {
+  try {
+    // 1. Sprawdź połączenie z bazą danych MongoDB
+    // `readyState` values: 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
+    const dbState = mongoose.connection.readyState;
+    let dbStatus = "disconnected";
 
-      // Zapisz błąd do bazy
-      const error = new ErrorSchema({
-        service: req.body.service || "unknown",
-        environment: req.body.environment || "development",
-        level: req.body.level || "error",
-        error: req.body.error,
-        context: req.body.context || {},
-        timestamp: new Date(),
-      });
-
-      await error.save();
-
-      res.status(201).json({
-        success: true,
-        id: error._id,
-      });
-    } catch (err) {
-      console.error("Error saving error report:", err);
-      res.status(500).json({
-        success: false,
-        error: "Could not save error report",
-      });
+    if (dbState === 1) {
+      // Dodatkowo, można spróbować wykonać prostą operację, np. ping
+      await mongoose.connection.db.admin().ping();
+      dbStatus = "connected";
+    } else if (dbState === 0) {
+      dbStatus = "disconnected";
+    } else if (dbState === 2) {
+      dbStatus = "connecting";
+    } else if (dbState === 3) {
+      dbStatus = "disconnecting";
     }
+
+    if (dbStatus === "connected") {
+      res.status(200).json({
+        status: "OK",
+        message: "Errors API is healthy",
+        timestamp: new Date().toISOString(),
+        dependencies: {
+          database: dbStatus,
+        },
+      });
+    } else {
+      // Jeśli stan nie jest 'connected', uznajemy za problem
+      throw new Error(
+        `Database is not connected. Current state: ${dbState} (${dbStatus})`
+      );
+    }
+  } catch (error) {
+    console.error("Health check failed:", error);
+    res.status(503).json({
+      // 503 Service Unavailable
+      status: "ERROR",
+      message: "Errors API is unhealthy.",
+      timestamp: new Date().toISOString(),
+      dependencies: {
+        database: `failed (${mongoose.connection.readyState})`,
+      },
+      details: error.message,
+    });
+  }
+};
+
+// POST /api/errors/log - Log a new error
+exports.logError = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
   }
 
-  async getErrors(req, res, next) {
-    try {
-      const result = await errorModel.findAll(req.query);
+  try {
+    const {
+      timestamp, // This should be the time the error occurred in the source service
+      sourceService,
+      errorMessage,
+      errorCode,
+      requestDetails,
+      stackTrace,
+      additionalContext,
+    } = req.body;
 
-      res.json({
-        success: true,
-        ...result,
-      });
-    } catch (err) {
-      next(err);
-    }
+    const newErrorLog = new ErrorLog({
+      timestamp: timestamp ? new Date(timestamp) : new Date(), // Default to now if not provided
+      sourceService,
+      errorMessage,
+      errorCode,
+      requestDetails,
+      stackTrace,
+      additionalContext,
+      // loggedAt will be set by default by Mongoose
+    });
+
+    const savedError = await newErrorLog.save();
+    res
+      .status(201)
+      .json({ message: "Error logged successfully", errorId: savedError._id });
+  } catch (err) {
+    // Avoid sending this error to itself to prevent a loop. Log to console or a fallback.
+    console.error("FATAL: Failed to save error log to database:", err);
+    res.status(500).json({
+      message: "Internal server error while trying to log the error.",
+    });
+  }
+};
+
+// GET /api/errors - Retrieve logged errors
+exports.getErrors = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
   }
 
-  async getErrorById(req, res, next) {
-    try {
-      const error = await errorModel.findById(req.params.id);
+  try {
+    const { sourceService, sortOrder } = req.query;
+    const limit = parseInt(req.query.limit) || 20; // Default limit to 20
 
-      if (!error) {
-        return res.status(404).json({
-          success: false,
-          error: "Error not found",
-        });
-      }
-
-      res.json({
-        success: true,
-        data: error,
-      });
-    } catch (err) {
-      next(err);
+    let query = {};
+    if (sourceService) {
+      query.sourceService = sourceService;
     }
-  }
 
-  async getStats(req, res, next) {
-    try {
-      const stats = await errorModel.getStats(req.query.timeframe);
-
-      res.json({
-        success: true,
-        data: stats,
-        timeframe: req.query.timeframe || "24h",
-      });
-    } catch (err) {
-      next(err);
+    let sort = { timestamp: -1 }; // Default: newest first (based on error occurrence)
+    if (sortOrder === "oldest") {
+      sort = { timestamp: 1 }; // Oldest first
     }
+    // Alternatively, to sort by when it was logged into *this* service:
+    // let sort = { loggedAt: -1 };
+    // if (sortOrder === 'oldest') {
+    //   sort = { loggedAt: 1 };
+    // }
+
+    const errorLogs = await ErrorLog.find(query).sort(sort).limit(limit).lean(); // .lean() for faster queries if you don't need Mongoose documents
+
+    const totalErrors = await ErrorLog.countDocuments(query);
+
+    res.status(200).json({
+      message: "Errors retrieved successfully.",
+      data: errorLogs,
+      pagination: {
+        total: totalErrors,
+        limit: limit,
+        // Add page info if you implement pagination later
+      },
+    });
+  } catch (err) {
+    console.error("Failed to retrieve error logs:", err);
+    res.status(500).json({
+      message: "Failed to retrieve error logs due to an internal issue.",
+    });
   }
-
-  async cleanup(req, res, next) {
-    try {
-      const result = await errorModel.cleanup(req.query.olderThan);
-
-      res.json({
-        success: true,
-        deleted: result.deletedCount,
-      });
-    } catch (err) {
-      next(err);
-    }
-  }
-}
-
-module.exports = new ErrorController();
+};

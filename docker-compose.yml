@@ -81,10 +81,7 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${POSTGRES_DB}?schema=public
       - PORT=${TASKS_API_PORT}
       - NODE_ENV=${NODE_ENV}
-      - KEYCLOAK_AUTH_SERVER_URL=http://keycloak:${KEYCLOAK_PORT}
-      - KEYCLOAK_REALM=${KEYCLOAK_REALM}
       - SERVICE_NAME=tasks-service
-      - ERROR_SERVICE_URL=http://error-service:${ERROR_SERVICE_PORT}
     volumes:
       - ./api/tasks:/app
       - /app/node_modules
@@ -103,8 +100,8 @@ services:
       - PORT=${ERROR_SERVICE_PORT}
       - NODE_ENV=${NODE_ENV}
       - MONGO_URL=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongodb:${MONGO_PORT}/${MONGO_DB}?authSource=admin
-      - KEYCLOAK_AUTH_SERVER_URL=http://keycloak:${KEYCLOAK_PORT}
-      - KEYCLOAK_REALM=${KEYCLOAK_REALM}
+    ports:
+      - "${ERROR_SERVICE_PORT:-3400}:${ERROR_SERVICE_PORT}"
     volumes:
       - ./api/errors:/app
       - /app/node_modules
