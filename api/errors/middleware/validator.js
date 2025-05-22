@@ -17,7 +17,7 @@ exports.validateErrorLog = [
     .optional()
     .isISO8601()
     .withMessage("Timestamp must be a valid ISO 8601 date.")
-    .toDate(), // Convert to Date object
+    .toDate(),
   body("errorCode")
     .optional()
     .isString()

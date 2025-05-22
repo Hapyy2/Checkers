@@ -14,6 +14,6 @@ router.post("/log", validateErrorLog, errorController.logError);
 router.get("/", validateGetErrorsQuery, errorController.getErrors);
 
 // GET /api/errors/health - Health check endpoint
-router.get("/health", errorController.healthCheck); // Nowa ścieżka
+router.get("/health", errorController.healthCheck);
 
 module.exports = router;

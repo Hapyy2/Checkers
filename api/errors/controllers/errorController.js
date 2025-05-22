@@ -5,13 +5,10 @@ const mongoose = require("mongoose");
 // GET /api/errors/health - Sprawdzenie stanu serwisu
 exports.healthCheck = async (req, res) => {
   try {
-    // 1. Sprawdź połączenie z bazą danych MongoDB
-    // `readyState` values: 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
     const dbState = mongoose.connection.readyState;
     let dbStatus = "disconnected";
 
     if (dbState === 1) {
-      // Dodatkowo, można spróbować wykonać prostą operację, np. ping
       await mongoose.connection.db.admin().ping();
       dbStatus = "connected";
     } else if (dbState === 0) {
@@ -32,7 +29,6 @@ exports.healthCheck = async (req, res) => {
         },
       });
     } else {
-      // Jeśli stan nie jest 'connected', uznajemy za problem
       throw new Error(
         `Database is not connected. Current state: ${dbState} (${dbStatus})`
       );
@@ -40,7 +36,6 @@ exports.healthCheck = async (req, res) => {
   } catch (error) {
     console.error("Health check failed:", error);
     res.status(503).json({
-      // 503 Service Unavailable
       status: "ERROR",
       message: "Errors API is unhealthy.",
       timestamp: new Date().toISOString(),
@@ -61,7 +56,7 @@ exports.logError = async (req, res) => {
 
   try {
     const {
-      timestamp, // This should be the time the error occurred in the source service
+      timestamp,
       sourceService,
       errorMessage,
       errorCode,
@@ -78,7 +73,6 @@ exports.logError = async (req, res) => {
       requestDetails,
       stackTrace,
       additionalContext,
-      // loggedAt will be set by default by Mongoose
     });
 
     const savedError = await newErrorLog.save();
@@ -86,7 +80,6 @@ exports.logError = async (req, res) => {
       .status(201)
       .json({ message: "Error logged successfully", errorId: savedError._id });
   } catch (err) {
-    // Avoid sending this error to itself to prevent a loop. Log to console or a fallback.
     console.error("FATAL: Failed to save error log to database:", err);
     res.status(500).json({
       message: "Internal server error while trying to log the error.",
@@ -103,22 +96,17 @@ exports.getErrors = async (req, res) => {
 
   try {
     const { sourceService, sortOrder } = req.query;
-    const limit = parseInt(req.query.limit) || 20; // Default limit to 20
+    const limit = parseInt(req.query.limit) || 20;
 
     let query = {};
     if (sourceService) {
       query.sourceService = sourceService;
     }
 
-    let sort = { timestamp: -1 }; // Default: newest first (based on error occurrence)
+    let sort = { timestamp: -1 };
     if (sortOrder === "oldest") {
-      sort = { timestamp: 1 }; // Oldest first
+      sort = { timestamp: 1 };
     }
-    // Alternatively, to sort by when it was logged into *this* service:
-    // let sort = { loggedAt: -1 };
-    // if (sortOrder === 'oldest') {
-    //   sort = { loggedAt: 1 };
-    // }
 
     const errorLogs = await ErrorLog.find(query).sort(sort).limit(limit).lean(); // .lean() for faster queries if you don't need Mongoose documents
 
@@ -130,7 +118,6 @@ exports.getErrors = async (req, res) => {
       pagination: {
         total: totalErrors,
         limit: limit,
-        // Add page info if you implement pagination later
       },
     });
   } catch (err) {
