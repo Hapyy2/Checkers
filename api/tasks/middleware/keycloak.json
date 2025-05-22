@@ -1,0 +1,14 @@
+{
+  "realm": "whattodo",
+  "auth-server-url": "http://localhost/auth/",
+  "ssl-required": "external",
+  "resource": "whattodo-app",
+  "verify-token-audience": false,
+  "credentials": {
+    "secret": "whattodo-client-secret"
+  },
+  "use-resource-role-mappings": true,
+  "confidential-port": 0,
+  "enable-logging": true,
+  "policy-enforcer": {}
+}
