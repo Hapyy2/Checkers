@@ -32,16 +32,8 @@ services:
     environment:
       - PORT=${API_GATEWAY_PORT:-3001}
       - NODE_ENV=${NODE_ENV:-development}
-      - KEYCLOAK_AUTH_SERVER_URL=http://keycloak:${KEYCLOAK_PORT}
-      - KEYCLOAK_REALM=${KEYCLOAK_REALM}
-      - API_GATEWAY_CLIENT_ID=api-gateway
-      - API_GATEWAY_CLIENT_SECRET=${API_GATEWAY_SECRET}
-      - SESSION_SECRET=${SESSION_SECRET}
-      - API_GATEWAY_M2M_CLIENT_ID=${API_GATEWAY_M2M_CLIENT_ID}
-      - API_GATEWAY_M2M_CLIENT_SECRET=${API_GATEWAY_M2M_CLIENT_SECRET}
       - TASKS_API_INTERNAL_URL=http://tasks-api:${TASKS_API_PORT}
       - ERROR_SERVICE_INTERNAL_URL=http://error-service:${ERROR_SERVICE_PORT}
-      - DEBUG=keycloak*
     ports:
       - "${API_GATEWAY_PORT:-3001}:${API_GATEWAY_PORT:-3001}"
     depends_on:
@@ -79,9 +71,11 @@ services:
       dockerfile: Dockerfile
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${POSTGRES_DB}?schema=public
-      - PORT=${TASKS_API_PORT}
-      - NODE_ENV=${NODE_ENV}
-      - SERVICE_NAME=tasks-service
+      - PORT=${TASKS_API_PORT:-3100}
+      - NODE_ENV=${NODE_ENV:-development}
+      - SERVICE_NAME=${SERVICE_NAME_TASKS:-tasks-api}
+      - API_GATEWAY_INTERNAL_ERROR_ENDPOINT=http://api-gateway:${API_GATEWAY_PORT:-3001}/gw/internal-error-report
+      - LOG_LEVEL=${LOG_LEVEL_TASKS:-dev}
     volumes:
       - ./api/tasks:/app
       - /app/node_modules

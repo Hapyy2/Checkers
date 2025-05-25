@@ -1,6 +1,5 @@
 generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -8,160 +7,71 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum TaskStatus {
-  TODO
-  IN_PROGRESS
-  REVIEW
-  DONE
-  CANCELLED
+model User {
+  id        String    @id @default(cuid())
+  // email     String    @unique
+  // name      String?
+  tasks     Task[]
+  categories Category[]
+
+  @@map("users")
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tasks     Task[]
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([name, userId])
+  @@map("categories")
 }
 
 enum TaskPriority {
   LOW
   MEDIUM
   HIGH
-  URGENT
 }
 
-enum RecurrenceFrequency {
-  DAILY
-  WEEKLY
-  MONTHLY
-  YEARLY
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  CANCELLED
 }
 
 model Task {
-  id             String         @id @default(uuid())
-  title          String
-  description    String?
-  status         TaskStatus     @default(TODO)
-  priority       TaskPriority   @default(MEDIUM)
-  
-  // Timestamps
-  dueDate        DateTime?
-  completedAt    DateTime?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  deletedAt      DateTime?      // soft delete
-  
-  // User relations (storing IDs from users service)
-  createdBy      String
-  assignedTo     String?
-  
-  // Project relation
-  projectId      String?
-  
-  // Relations
-  categories     TaskCategory[]
-  tags           TaskTag[]
-  comments       Comment[]
-  
-  // Recurrence settings
-  recurrence     TaskRecurrence?
-  
-  @@index([createdBy])
-  @@index([assignedTo])
-  @@index([projectId])
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  priority    TaskPriority @default(MEDIUM)
+  status      TaskStatus   @default(TODO)
+  dueDate     DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  categoryId  String?
+  category    Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+
+  // Identyfikator projektu (na razie jako String)
+  // projectId   String? // Jeśli zadania mogą należeć do projektów
+
+  // Indeksy
   @@index([status])
+  @@index([priority])
   @@index([dueDate])
-  @@index([createdBy, status])
-  @@index([assignedTo, status])
-  @@index([projectId, status])
-  @@index([dueDate, status])
-  @@index([deletedAt])
-  @@index([createdAt])
+  @@index([userId])
+  @@index([categoryId])
+  // @@index([projectId])
+
   @@map("tasks")
-}
-
-model Category {
-  id           String         @id @default(uuid())
-  name         String
-  color        String?
-  icon         String?
-  description  String?
-  userId       String         // owner of the category
-  isGlobal     Boolean        @default(false) // admin created categories
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  
-  tasks        TaskCategory[]
-  
-  @@unique([name, userId])
-  @@index([userId])
-  @@map("categories")
-}
-
-model TaskCategory {
-  id           String   @id @default(uuid())
-  taskId       String
-  categoryId   String
-  createdAt    DateTime @default(now())
-  
-  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  category     Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  
-  @@unique([taskId, categoryId])
-  @@map("task_categories")
-}
-
-model Tag {
-  id           String   @id @default(uuid())
-  name         String
-  color        String?
-  userId       String   // owner of the tag
-  isGlobal     Boolean  @default(false) // admin created tags
-  createdAt    DateTime @default(now())
-  
-  tasks        TaskTag[]
-  
-  @@unique([name, userId])
-  @@index([userId])
-  @@map("tags")
-}
-
-model TaskTag {
-  id           String   @id @default(uuid())
-  taskId       String
-  tagId        String
-  createdAt    DateTime @default(now())
-  
-  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  tag          Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
-  
-  @@unique([taskId, tagId])
-  @@map("task_tags")
-}
-
-model Comment {
-  id           String   @id @default(uuid())
-  taskId       String
-  userId       String   // author ID from users service
-  content      String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  deletedAt    DateTime? // soft delete
-  
-  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  
-  @@index([taskId])
-  @@index([userId])
-  @@map("comments")
-}
-
-model TaskRecurrence {
-  id           String              @id @default(uuid())
-  taskId       String              @unique
-  frequency    RecurrenceFrequency
-  interval     Int                 @default(1) // every N days/weeks/months
-  daysOfWeek   String?             // for weekly: "0,1,2,3,4,5,6" (Sun-Sat)
-  dayOfMonth   Int?                // for monthly
-  monthOfYear  Int?                // for yearly
-  endDate      DateTime?
-  occurrences  Int?                // max number of occurrences
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
-  
-  task         Task                @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  
-  @@map("task_recurrences")
 }
