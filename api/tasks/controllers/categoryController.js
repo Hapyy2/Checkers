@@ -7,24 +7,29 @@ exports.createCategory = async (req, res, next) => {
     return res.status(400).json({ errors: errors.array() });
   }
 
-  const { name, userId } = req.body;
+  const userIdFromHeader = req.headers["x-user-id"];
+  if (!userIdFromHeader) {
+    console.error(
+      "CRITICAL: X-User-ID header missing in request to tasks-service (createCategory)."
+    );
+    return res.status(401).json({
+      message: "Unauthorized: User identifier not provided by gateway.",
+    });
+  }
+
+  const { name } = req.body;
 
   try {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) {
-      // W tymczasowym rozwiązaniu, jeśli User nie istnieje, możemy go stworzyć
-      // W docelowym rozwiązaniu ten błąd oznaczałby problem z ID usera z tokenu JWT
-      await prisma.user.create({ data: { id: userId } });
-      console.log(
-        `Temporary user created with ID: ${userId} for category creation.`
-      );
-      // return res.status(404).json({ message: `User with ID ${userId} not found.` });
-    }
+    await prisma.user.upsert({
+      where: { id: userIdFromHeader },
+      update: {},
+      create: { id: userIdFromHeader },
+    });
 
     const category = await prisma.category.create({
       data: {
         name,
-        userId,
+        userId: userIdFromHeader,
       },
     });
     res.status(201).json(category);
@@ -43,17 +48,30 @@ exports.createCategory = async (req, res, next) => {
 };
 
 exports.getCategoriesByUser = async (req, res, next) => {
-  const { userId } = req.params;
+  const userId = req.headers["x-user-id"];
+  const userRoles = (req.headers["x-user-roles"] || "").split(",");
+  const isAdmin = userRoles.includes("admin");
+  let targetUserId = req.params.userId;
 
   if (!userId) {
-    return res
-      .status(400)
-      .json({ message: "User ID is required to fetch categories." });
+    return res.status(401).json({
+      message: "Unauthorized: User identifier not provided by gateway.",
+    });
+  }
+
+  let queryUserId = userId;
+
+  if (isAdmin && targetUserId) {
+    queryUserId = targetUserId;
+  } else if (targetUserId && targetUserId !== userId && !isAdmin) {
+    return res.status(403).json({
+      message: "Forbidden: You can only view your own categories.",
+    });
   }
 
   try {
     const categories = await prisma.category.findMany({
-      where: { userId: userId },
+      where: { userId: queryUserId },
       orderBy: { name: "asc" },
     });
     res.status(200).json(categories);
@@ -67,21 +85,33 @@ exports.updateCategory = async (req, res, next) => {
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
   }
-  const { id } = req.params;
-  const { name, userId } = req.body;
 
+  const userIdAuth = req.headers["x-user-id"];
+  const userRoles = (req.headers["x-user-roles"] || "").split(",");
+  const isAdmin = userRoles.includes("admin");
+
+  if (!userIdAuth) {
+    return res.status(401).json({
+      message: "Unauthorized: User identifier not provided by gateway.",
+    });
+  }
+
+  const { id } = req.params;
+  const { name } = req.body;
   try {
     const categoryToUpdate = await prisma.category.findUnique({
       where: { id },
     });
+
     if (!categoryToUpdate) {
       return res.status(404).json({ message: "Category not found" });
     }
-    // W przyszłości weryfikacja, czy req.user.id === categoryToUpdate.userId
-    if (userId && categoryToUpdate.userId !== userId) {
-      return res
-        .status(403)
-        .json({ message: "User not authorized to update this category" });
+
+    if (!isAdmin && categoryToUpdate.userId !== userIdAuth) {
+      return res.status(403).json({
+        message:
+          "Forbidden: You do not own this category and cannot update it.",
+      });
     }
 
     const updatedCategory = await prisma.category.update({
@@ -100,27 +130,42 @@ exports.updateCategory = async (req, res, next) => {
           "Another category with this name already exists for this user.",
       });
     }
+    if (error.code === "P2025") {
+      return res
+        .status(404)
+        .json({ message: "Category not found for update." });
+    }
     next(error);
   }
 };
 
-// Usuń kategorię
 exports.deleteCategory = async (req, res, next) => {
+  const userIdAuth = req.headers["x-user-id"];
+  const userRoles = (req.headers["x-user-roles"] || "").split(",");
+  const isAdmin = userRoles.includes("admin");
+
+  if (!userIdAuth) {
+    return res.status(401).json({
+      message: "Unauthorized: User identifier not provided by gateway.",
+    });
+  }
+
   const { id } = req.params;
-  const { userId } = req.body;
 
   try {
     const categoryToDelete = await prisma.category.findUnique({
       where: { id },
     });
+
     if (!categoryToDelete) {
       return res.status(404).json({ message: "Category not found" });
     }
-    // W przyszłości weryfikacja, czy req.user.id === categoryToDelete.userId
-    if (userId && categoryToDelete.userId !== userId) {
-      return res
-        .status(403)
-        .json({ message: "User not authorized to delete this category" });
+
+    if (!isAdmin && categoryToDelete.userId !== userIdAuth) {
+      return res.status(403).json({
+        message:
+          "Forbidden: You do not own this category and cannot delete it.",
+      });
     }
 
     await prisma.category.delete({
@@ -128,6 +173,11 @@ exports.deleteCategory = async (req, res, next) => {
     });
     res.status(204).send();
   } catch (error) {
+    if (error.code === "P2025") {
+      return res
+        .status(404)
+        .json({ message: "Category not found or already deleted." });
+    }
     next(error);
   }
 };

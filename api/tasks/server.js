@@ -30,7 +30,7 @@ app.use(async (err, req, res, next) => {
     method: req.method,
     url: req.originalUrl,
     ip: req.ip,
-    // userId: req.user?.id,
+    userId: req.user?.id,
   };
 
   reportError(err, requestContext, { serviceInternal: true });

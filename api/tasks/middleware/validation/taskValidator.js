@@ -32,12 +32,6 @@ exports.validateTask = [
     .isISO8601()
     .withMessage("Invalid due date format. Must be ISO8601.")
     .toDate(),
-  body("userId")
-    .trim()
-    .notEmpty()
-    .withMessage("User ID is required for task.")
-    .isString()
-    .withMessage("User ID must be a string."),
   body("categoryId")
     .optional({ checkFalsy: true })
     .isString()

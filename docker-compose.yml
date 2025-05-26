@@ -34,6 +34,10 @@ services:
       - NODE_ENV=${NODE_ENV:-development}
       - TASKS_API_INTERNAL_URL=http://tasks-api:${TASKS_API_PORT}
       - ERROR_SERVICE_INTERNAL_URL=http://error-service:${ERROR_SERVICE_PORT}
+      - API_GATEWAY_KEYCLOAK_URL=${API_GATEWAY_KEYCLOAK_URL}
+      - API_GATEWAY_KEYCLOAK_REALM=${API_GATEWAY_KEYCLOAK_REALM}
+      - API_GATEWAY_KEYCLOAK_ISSUER=${API_GATEWAY_KEYCLOAK_ISSUER}
+      - API_GATEWAY_KEYCLOAK_AUDIENCE=${API_GATEWAY_KEYCLOAK_AUDIENCE}
     ports:
       - "${API_GATEWAY_PORT:-3001}:${API_GATEWAY_PORT:-3001}"
     depends_on:
@@ -74,14 +78,22 @@ services:
       - PORT=${TASKS_API_PORT:-3100}
       - NODE_ENV=${NODE_ENV:-development}
       - SERVICE_NAME=${SERVICE_NAME_TASKS:-tasks-api}
-      - API_GATEWAY_INTERNAL_ERROR_ENDPOINT=http://api-gateway:${API_GATEWAY_PORT:-3001}/gw/internal-error-report
       - LOG_LEVEL=${LOG_LEVEL_TASKS:-dev}
+      - API_GATEWAY_INTERNAL_ERROR_ENDPOINT=http://api-gateway:${API_GATEWAY_PORT:-3001}/gw/errors/log
+      - TASKS_API_KEYCLOAK_URL=${TASKS_API_KEYCLOAK_URL}
+      - TASKS_API_KEYCLOAK_REALM=${TASKS_API_KEYCLOAK_REALM}
+      - TASKS_API_CLIENT_ID=${TASKS_API_CLIENT_ID}
+      - TASKS_API_CLIENT_SECRET=${TASKS_API_CLIENT_SECRET}
+    ports:
+      - "${TASKS_API_PORT:-3100}:${TASKS_API_PORT}"
     volumes:
       - ./api/tasks:/app
       - /app/node_modules
     depends_on:
-      - postgres
-      - keycloak
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
     networks:
       - whattodo-network
 
@@ -119,6 +131,12 @@ services:
       - whattodo-network
     secrets:
       - postgres_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -q"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   mongodb:
     container_name: mongodb

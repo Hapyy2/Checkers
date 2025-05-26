@@ -8,7 +8,7 @@ const router = express.Router();
 
 router.post("/", validateCategory, categoryController.createCategory);
 
-router.get("/user/:userId", categoryController.getCategoriesByUser);
+router.get("/", categoryController.getCategoriesByUser);
 
 router.put("/:id", validateCategory, categoryController.updateCategory);
 

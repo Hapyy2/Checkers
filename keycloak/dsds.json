@@ -57,15 +57,6 @@
         "attributes": {}
       },
       {
-        "id": "c801950e-b05f-447b-9e40-cfb1d6d816bb",
-        "name": "service-role",
-        "description": "Role for services clients.",
-        "composite": false,
-        "clientRole": false,
-        "containerId": "daef1c6b-03c1-4284-9f26-95fa5aa1f723",
-        "attributes": {}
-      },
-      {
         "id": "71eec2c8-0176-44b0-8d49-ed8c6a29c560",
         "name": "default-roles-whattodo",
         "description": "${role_default-roles}",
@@ -316,7 +307,6 @@
           "attributes": {}
         }
       ],
-      "tasks-service": [],
       "security-admin-console": [],
       "api-gateway": [],
       "admin-cli": [],
@@ -475,21 +465,7 @@
       "serviceAccountClientId": "api-gateway",
       "disableableCredentialTypes": [],
       "requiredActions": [],
-      "realmRoles": ["service-role", "default-roles-whattodo"],
-      "notBefore": 0,
-      "groups": []
-    },
-    {
-      "id": "8b3554fc-ff60-4770-9b1d-3dee6f35d902",
-      "username": "service-account-tasks-service",
-      "emailVerified": false,
-      "createdTimestamp": 1748212801772,
-      "enabled": true,
-      "totp": false,
-      "serviceAccountClientId": "tasks-service",
-      "disableableCredentialTypes": [],
-      "requiredActions": [],
-      "realmRoles": ["service-role", "default-roles-whattodo"],
+      "realmRoles": ["default-roles-whattodo"],
       "notBefore": 0,
       "groups": []
     },
@@ -690,7 +666,7 @@
       "id": "f6dbadd5-9c13-4124-9298-09e780c4a9fa",
       "clientId": "api-gateway",
       "name": "Api gateway",
-      "description": "Resource client for token exchange with frontend.",
+      "description": "Client for communication between api services (m2m).",
       "rootUrl": "",
       "adminUrl": "",
       "baseUrl": "",
@@ -718,9 +694,7 @@
         "backchannel.logout.session.required": "true",
         "standard.token.exchange.enabled": "false",
         "post.logout.redirect.uris": "+",
-        "frontchannel.logout.session.required": "true",
         "oauth2.device.authorization.grant.enabled": "false",
-        "display.on.consent.screen": "false",
         "backchannel.logout.revoke.offline.tokens": "false"
       },
       "authenticationFlowBindingOverrides": {},
@@ -808,7 +782,7 @@
       "consentRequired": false,
       "standardFlowEnabled": true,
       "implicitFlowEnabled": false,
-      "directAccessGrantsEnabled": true,
+      "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
       "publicClient": true,
       "frontchannelLogout": true,
@@ -852,9 +826,8 @@
             "included.client.audience": "api-gateway",
             "id.token.claim": "true",
             "lightweight.claim": "true",
-            "introspection.token.claim": "true",
             "access.token.claim": "true",
-            "userinfo.token.claim": "true"
+            "introspection.token.claim": "true"
           }
         }
       ],
@@ -967,61 +940,6 @@
         }
       ],
       "defaultClientScopes": [
-        "web-origins",
-        "acr",
-        "profile",
-        "roles",
-        "basic",
-        "email"
-      ],
-      "optionalClientScopes": [
-        "address",
-        "phone",
-        "offline_access",
-        "organization",
-        "microprofile-jwt"
-      ]
-    },
-    {
-      "id": "23046661-391e-40cb-b5b1-43404e386bcf",
-      "clientId": "tasks-service",
-      "name": "Tasks Service Client",
-      "description": "",
-      "rootUrl": "",
-      "adminUrl": "",
-      "baseUrl": "",
-      "surrogateAuthRequired": false,
-      "enabled": true,
-      "alwaysDisplayInConsole": false,
-      "clientAuthenticatorType": "client-secret",
-      "secret": "tasks-service-secret",
-      "redirectUris": ["/*"],
-      "webOrigins": ["/*"],
-      "notBefore": 0,
-      "bearerOnly": false,
-      "consentRequired": false,
-      "standardFlowEnabled": false,
-      "implicitFlowEnabled": false,
-      "directAccessGrantsEnabled": false,
-      "serviceAccountsEnabled": true,
-      "publicClient": false,
-      "frontchannelLogout": true,
-      "protocol": "openid-connect",
-      "attributes": {
-        "realm_client": "false",
-        "oidc.ciba.grant.enabled": "false",
-        "client.secret.creation.time": "1748212801",
-        "backchannel.logout.session.required": "true",
-        "standard.token.exchange.enabled": "false",
-        "post.logout.redirect.uris": "+",
-        "oauth2.device.authorization.grant.enabled": "false",
-        "backchannel.logout.revoke.offline.tokens": "false"
-      },
-      "authenticationFlowBindingOverrides": {},
-      "fullScopeAllowed": true,
-      "nodeReRegistrationTimeout": -1,
-      "defaultClientScopes": [
-        "service_account",
         "web-origins",
         "acr",
         "profile",
@@ -1795,14 +1713,14 @@
         "subComponents": {},
         "config": {
           "allowed-protocol-mapper-types": [
-            "oidc-usermodel-attribute-mapper",
-            "saml-user-property-mapper",
-            "saml-user-attribute-mapper",
             "oidc-full-name-mapper",
-            "oidc-usermodel-property-mapper",
-            "oidc-sha256-pairwise-sub-mapper",
+            "saml-user-attribute-mapper",
             "oidc-address-mapper",
-            "saml-role-list-mapper"
+            "oidc-sha256-pairwise-sub-mapper",
+            "oidc-usermodel-property-mapper",
+            "saml-role-list-mapper",
+            "saml-user-property-mapper",
+            "oidc-usermodel-attribute-mapper"
           ]
         }
       },
@@ -1814,14 +1732,14 @@
         "subComponents": {},
         "config": {
           "allowed-protocol-mapper-types": [
-            "oidc-address-mapper",
-            "oidc-usermodel-property-mapper",
-            "saml-user-attribute-mapper",
-            "saml-user-property-mapper",
-            "oidc-usermodel-attribute-mapper",
-            "saml-role-list-mapper",
             "oidc-full-name-mapper",
-            "oidc-sha256-pairwise-sub-mapper"
+            "saml-user-property-mapper",
+            "saml-role-list-mapper",
+            "oidc-usermodel-attribute-mapper",
+            "saml-user-attribute-mapper",
+            "oidc-usermodel-property-mapper",
+            "oidc-sha256-pairwise-sub-mapper",
+            "oidc-address-mapper"
           ]
         }
       },

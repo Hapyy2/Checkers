@@ -2,11 +2,20 @@ const prisma = require("../config/db");
 const { validationResult } = require("express-validator");
 const { TaskPriority, TaskStatus } = require("@prisma/client");
 
-// Utwórz nowe zadanie
 exports.createTask = async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
+  }
+
+  const userIdFromHeader = req.headers["x-user-id"];
+  if (!userIdFromHeader) {
+    console.error(
+      "CRITICAL: X-User-ID header missing in request to tasks-service (createTask)."
+    );
+    return res.status(401).json({
+      message: "Unauthorized: User identifier not provided by gateway.",
+    });
   }
 
   const {
@@ -15,20 +24,16 @@ exports.createTask = async (req, res, next) => {
     priority,
     status,
     dueDate,
-    userId,
     categoryId,
     newCategoryName,
   } = req.body;
 
   try {
-    // Symulacja istnienia użytkownika - w pełnym systemie byłby z tokenu JWT
-    let user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) {
-      user = await prisma.user.create({
-        data: { id: userId /*, email: `${userId}@example.com` */ },
-      });
-      console.log(`Temporary user created with ID: ${userId}`);
-    }
+    await prisma.user.upsert({
+      where: { id: userIdFromHeader },
+      update: {},
+      create: { id: userIdFromHeader },
+    });
 
     let taskData = {
       title,
@@ -36,7 +41,7 @@ exports.createTask = async (req, res, next) => {
       priority: priority || TaskPriority.MEDIUM,
       status: status || TaskStatus.TODO,
       dueDate: dueDate ? new Date(dueDate) : null,
-      userId: user.id,
+      userId: userIdFromHeader,
     };
 
     if (categoryId) {
@@ -44,17 +49,14 @@ exports.createTask = async (req, res, next) => {
     }
 
     let createdTask;
-
     if (newCategoryName && !categoryId) {
       createdTask = await prisma.$transaction(async (tx) => {
         const newCategory = await tx.category.create({
           data: {
             name: newCategoryName,
-            userId: user.id,
+            userId: userIdFromHeader,
           },
         });
-        console.log("New category created in transaction:", newCategory.name);
-
         taskData.categoryId = newCategory.id;
         const task = await tx.task.create({
           data: taskData,
@@ -62,17 +64,12 @@ exports.createTask = async (req, res, next) => {
         });
         return task;
       });
-      console.log(
-        "Task and new category created successfully in a transaction."
-      );
     } else {
       createdTask = await prisma.task.create({
         data: taskData,
         include: { category: true },
       });
-      console.log("Task created successfully.");
     }
-
     res.status(201).json(createdTask);
   } catch (error) {
     if (
@@ -84,21 +81,32 @@ exports.createTask = async (req, res, next) => {
         message: "Category with this name already exists for this user.",
       });
     }
-    if (error.code === "P2003") {
-      if (error.meta?.field_name?.includes("categoryId")) {
-        return res
-          .status(400)
-          .json({ message: "Invalid categoryId. Category does not exist." });
-      }
+    if (
+      error.code === "P2003" &&
+      error.meta?.field_name?.includes("categoryId")
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Invalid categoryId. Category does not exist." });
     }
     next(error);
   }
 };
 
 exports.getAllTasks = async (req, res, next) => {
-  // Na razie userId z query, docelowo z req.user.id
+  const userId = req.headers["x-user-id"];
+  const userRoles = (req.headers["x-user-roles"] || "").split(",");
+  const isAdmin = userRoles.includes("admin");
+
+  let targetUserIdQuery = req.query.userId; // Dla admina, aby mógł filtrować po userId
+
+  if (!userId) {
+    return res.status(401).json({
+      message: "Unauthorized: User identifier not provided by gateway.",
+    });
+  }
+
   const {
-    userId,
     status,
     priority,
     categoryId,
@@ -107,7 +115,12 @@ exports.getAllTasks = async (req, res, next) => {
   } = req.query;
 
   const where = {};
-  if (userId) where.userId = userId;
+  if (isAdmin && targetUserIdQuery) {
+    where.userId = targetUserIdQuery;
+  } else {
+    where.userId = userId; // Zwykły użytkownik widzi tylko swoje
+  }
+
   if (status) where.status = status;
   if (priority) where.priority = priority;
   if (categoryId) where.categoryId = categoryId;
@@ -128,46 +141,69 @@ exports.getAllTasks = async (req, res, next) => {
   }
 };
 
-// Pobierz zadanie po ID
 exports.getTaskById = async (req, res, next) => {
+  const userIdAuth = req.headers["x-user-id"];
+  const userRoles = (req.headers["x-user-roles"] || "").split(",");
+  const isAdmin = userRoles.includes("admin");
+
+  if (!userIdAuth) {
+    return res.status(401).json({
+      message: "Unauthorized: User identifier not provided by gateway.",
+    });
+  }
+
   const { id } = req.params;
-  // const userId = req.user.id // Docelowo do sprawdzania uprawnień
   try {
     const task = await prisma.task.findUnique({
       where: { id },
       include: { category: true },
     });
+
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
     }
-    // if (task.userId !== userId) return res.status(403).json({ message: 'Forbidden' });
+
+    if (!isAdmin && task.userId !== userIdAuth) {
+      return res
+        .status(403)
+        .json({ message: "Forbidden: You do not own this task." });
+    }
     res.status(200).json(task);
   } catch (error) {
     next(error);
   }
 };
 
-// Zaktualizuj zadanie
 exports.updateTask = async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
   }
-  const { id } = req.params;
-  // const currentUserId = req.user.id; // Docelowo
-  const { title, description, priority, status, dueDate, categoryId, userId } =
-    req.body;
 
+  const userIdAuth = req.headers["x-user-id"];
+  const userRoles = (req.headers["x-user-roles"] || "").split(",");
+  const isAdmin = userRoles.includes("admin");
+
+  if (!userIdAuth) {
+    return res.status(401).json({
+      message: "Unauthorized: User identifier not provided by gateway.",
+    });
+  }
+
+  const { id } = req.params;
+  const { title, description, priority, status, dueDate, categoryId } =
+    req.body;
   try {
     const taskToUpdate = await prisma.task.findUnique({ where: { id } });
+
     if (!taskToUpdate) {
       return res.status(404).json({ message: "Task not found" });
     }
-    // Weryfikacja uprawnień (na razie prosta, na podstawie userId z body)
-    if (userId && taskToUpdate.userId !== userId) {
-      return res
-        .status(403)
-        .json({ message: "User not authorized to update this task" });
+
+    if (!isAdmin && taskToUpdate.userId !== userIdAuth) {
+      return res.status(403).json({
+        message: "Forbidden: You do not own this task and cannot update it.",
+      });
     }
 
     const updatedTask = await prisma.task.update({
@@ -192,26 +228,40 @@ exports.updateTask = async (req, res, next) => {
         .status(400)
         .json({ message: "Invalid categoryId. Category does not exist." });
     }
+    if (error.code === "P2025") {
+      return res.status(404).json({
+        message:
+          "Failed to update task. Related record not found (e.g. category).",
+      });
+    }
     next(error);
   }
 };
 
-// Usuń zadanie
 exports.deleteTask = async (req, res, next) => {
+  const userIdAuth = req.headers["x-user-id"];
+  const userRoles = (req.headers["x-user-roles"] || "").split(",");
+  const isAdmin = userRoles.includes("admin");
+
+  if (!userIdAuth) {
+    return res.status(401).json({
+      message: "Unauthorized: User identifier not provided by gateway.",
+    });
+  }
+
   const { id } = req.params;
-  // const currentUserId = req.user.id; // Docelowo
-  const { userId } = req.body; // userId do weryfikacji właściciela
 
   try {
     const taskToDelete = await prisma.task.findUnique({ where: { id } });
+
     if (!taskToDelete) {
       return res.status(404).json({ message: "Task not found" });
     }
-    // Weryfikacja uprawnień (na razie prosta)
-    if (userId && taskToDelete.userId !== userId) {
-      return res
-        .status(403)
-        .json({ message: "User not authorized to delete this task" });
+
+    if (!isAdmin && taskToDelete.userId !== userIdAuth) {
+      return res.status(403).json({
+        message: "Forbidden: You do not own this task and cannot delete it.",
+      });
     }
 
     await prisma.task.delete({
@@ -219,6 +269,11 @@ exports.deleteTask = async (req, res, next) => {
     });
     res.status(204).send();
   } catch (error) {
+    if (error.code === "P2025") {
+      return res
+        .status(404)
+        .json({ message: "Task not found or already deleted." });
+    }
     next(error);
   }
 };

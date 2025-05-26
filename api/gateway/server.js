@@ -1,21 +1,18 @@
 require("dotenv").config();
 const express = require("express");
 const helmet = require("helmet");
-const morgan = require("morgan"); // Opcjonalny logger
+const morgan = require("morgan");
 const apiLimiter = require("./config/rateLimit");
 const allProxyRoutes = require("./routes/index");
 
 const app = express();
 
 app.use(helmet());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// Logger HTTP (opcjonalnie)
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 } else {
-  app.use(morgan("short")); // Lub inny format dla produkcji
+  app.use(morgan("short"));
 }
 
 app.use(apiLimiter);
@@ -36,7 +33,6 @@ app.use((err, req, res, next) => {
   }
   res.status(err.status || 500).json({
     message: err.message || "An unexpected error occurred on the API Gateway.",
-    // W trybie deweloperskim można dodać stack trace
     ...(process.env.NODE_ENV === "development" && { error: err.stack }),
   });
 });
