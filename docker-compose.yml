@@ -26,23 +26,26 @@ services:
     build:
       context: ./api/gateway
       dockerfile: Dockerfile
+    restart: unless-stopped
     volumes:
       - ./api/gateway:/app
       - /app/node_modules
     environment:
       - PORT=${API_GATEWAY_PORT:-3001}
       - NODE_ENV=${NODE_ENV:-development}
-      - TASKS_API_INTERNAL_URL=http://tasks-api:${TASKS_API_PORT}
-      - ERROR_SERVICE_INTERNAL_URL=http://error-service:${ERROR_SERVICE_PORT}
-      - API_GATEWAY_KEYCLOAK_URL=${API_GATEWAY_KEYCLOAK_URL}
-      - API_GATEWAY_KEYCLOAK_REALM=${API_GATEWAY_KEYCLOAK_REALM}
-      - API_GATEWAY_KEYCLOAK_ISSUER=${API_GATEWAY_KEYCLOAK_ISSUER}
-      - API_GATEWAY_KEYCLOAK_AUDIENCE=${API_GATEWAY_KEYCLOAK_AUDIENCE}
+      - TASKS_API_INTERNAL_URL=http://tasks-api:${TASKS_API_PORT:-3100}
+      - PROJECTS_API_INTERNAL_URL=http://projects-api:${PROJECTS_API_PORT:-3200} # Dodano URL do projects-api
+      - ERROR_SERVICE_INTERNAL_URL=http://error-service:${ERROR_SERVICE_PORT:-3400}
+      - API_GATEWAY_KEYCLOAK_URL=${KEYCLOAK_URL:-http://keycloak:${KEYCLOAK_PORT}}
+      - API_GATEWAY_KEYCLOAK_REALM=${KEYCLOAK_REALM:-whattodo}
+      - API_GATEWAY_KEYCLOAK_ISSUER=${KEYCLOAK_ISSUER:-http://${DOMAIN_NAME:-localhost}:${KEYCLOAK_PORT}/realms/${KEYCLOAK_REALM}}
+      - API_GATEWAY_KEYCLOAK_AUDIENCE=${KEYCLOAK_AUDIENCE:-api-gateway}
     ports:
       - "${API_GATEWAY_PORT:-3001}:${API_GATEWAY_PORT:-3001}"
     depends_on:
       - keycloak
       - tasks-api
+      - projects-api
       - error-service
     networks:
       - whattodo-network
@@ -50,21 +53,24 @@ services:
   keycloak:
     container_name: keycloak
     image: quay.io/keycloak/keycloak:26.2.4
+    restart: unless-stopped
     command:
       - start-dev
-      - --hostname=localhost
       - --import-realm
     environment:
-      - KC_HTTP_PORT=${KEYCLOAK_PORT}
-      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN_USER}
-      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
+      - KC_HTTP_PORT=${KEYCLOAK_PORT:-8080}
+      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN_USER:-admin}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-admin123}
       - KC_HOSTNAME=${DOMAIN_NAME:-localhost}
       - KC_HTTP_ENABLED=true
+      # Dodatkowe, aby debugować problemy z importem realmu, jeśli wystąpią
+      - KC_LOG_LEVEL=DEBUG
+      - KC_SPI_REALM_IMPORT_ENABLED=true
     ports:
-      - "${KEYCLOAK_PORT}:${KEYCLOAK_PORT}"
+      - "${KEYCLOAK_PORT:-8080}:${KEYCLOAK_PORT:-8080}"
     volumes:
       - keycloak-data:/opt/keycloak/data
-      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm.json
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
     networks:
       - whattodo-network
 
@@ -73,6 +79,7 @@ services:
     build:
       context: ./api/tasks
       dockerfile: Dockerfile
+    restart: unless-stopped
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${POSTGRES_DB}?schema=public
       - PORT=${TASKS_API_PORT:-3100}
@@ -80,16 +87,44 @@ services:
       - SERVICE_NAME=${SERVICE_NAME_TASKS:-tasks-api}
       - LOG_LEVEL=${LOG_LEVEL_TASKS:-dev}
       - API_GATEWAY_INTERNAL_ERROR_ENDPOINT=http://api-gateway:${API_GATEWAY_PORT:-3001}/gw/errors/log
-      - TASKS_API_KEYCLOAK_URL=${TASKS_API_KEYCLOAK_URL}
-      - TASKS_API_KEYCLOAK_REALM=${TASKS_API_KEYCLOAK_REALM}
-      - TASKS_API_CLIENT_ID=${TASKS_API_CLIENT_ID}
-      - TASKS_API_CLIENT_SECRET=${TASKS_API_CLIENT_SECRET}
-    ports:
-      - "${TASKS_API_PORT:-3100}:${TASKS_API_PORT}"
+      - TASKS_API_KEYCLOAK_URL=${KEYCLOAK_URL:-http://keycloak:${KEYCLOAK_PORT}}
+      - TASKS_API_KEYCLOAK_REALM=${KEYCLOAK_REALM:-whattodo}
+      - TASKS_API_CLIENT_ID=${TASKS_API_M2M_CLIENT_ID:-tasks-service}
+      - TASKS_API_CLIENT_SECRET=${TASKS_API_M2M_CLIENT_SECRET:-tasks-service-secret}
     volumes:
       - ./api/tasks:/app
       - /app/node_modules
     depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    networks:
+      - whattodo-network
+
+  projects-api:
+    container_name: projects-api
+    build:
+      context: ./api/projects
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${POSTGRES_DB}?schema=public
+      - PORT=${PROJECTS_API_PORT:-3200}
+      - NODE_ENV=${NODE_ENV:-development}
+      - SERVICE_NAME=${SERVICE_NAME_PROJECTS:-projects-api}
+      - LOG_LEVEL=${LOG_LEVEL_PROJECTS:-dev}
+      - API_GATEWAY_INTERNAL_ERROR_ENDPOINT=http://api-gateway:${API_GATEWAY_PORT:-3001}/gw/errors/log
+      - PROJECTS_API_KEYCLOAK_URL=${KEYCLOAK_URL:-http://keycloak:${KEYCLOAK_PORT}}
+      - PROJECTS_API_KEYCLOAK_REALM=${KEYCLOAK_REALM:-whattodo}
+      - PROJECTS_API_CLIENT_ID=${PROJECTS_API_M2M_CLIENT_ID:-projects-service}
+      - PROJECTS_API_CLIENT_SECRET=${PROJECTS_API_M2M_CLIENT_SECRET:-projects-service-secret}
+    volumes:
+      - ./api/projects:/app
+      - /app/node_modules
+    depends_on:
+      tasks-api:
+        condition: service_started
       postgres:
         condition: service_healthy
       keycloak:
@@ -102,9 +137,10 @@ services:
     build:
       context: ./api/errors
       dockerfile: Dockerfile
+    restart: unless-stopped
     environment:
-      - PORT=${ERROR_SERVICE_PORT}
-      - NODE_ENV=${NODE_ENV}
+      - PORT=${ERROR_SERVICE_PORT:-3400}
+      - NODE_ENV=${NODE_ENV:-development}
       - MONGO_URL=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongodb:${MONGO_PORT}/${MONGO_DB}?authSource=admin
     ports:
       - "${ERROR_SERVICE_PORT:-3400}:${ERROR_SERVICE_PORT}"
@@ -120,13 +156,13 @@ services:
   postgres:
     container_name: postgres
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./db/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - whattodo-network
     secrets:
@@ -141,13 +177,14 @@ services:
   mongodb:
     container_name: mongodb
     image: mongo:7.0
+    restart: unless-stopped
     environment:
       - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER}
       - MONGO_INITDB_ROOT_PASSWORD_FILE=/run/secrets/mongo_password
       - MONGO_INITDB_DATABASE=${MONGO_DB}
     volumes:
       - mongodb-data:/data/db
-      - ./db/mongodb:/docker-entrypoint-initdb.d
+      - ./db/mongodb/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js
     command: mongod --bind_ip_all --auth
     networks:
       - whattodo-network

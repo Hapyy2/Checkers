@@ -35,5 +35,13 @@ exports.validateTask = [
   body("categoryId")
     .optional({ checkFalsy: true })
     .isString()
-    .withMessage("Category ID must be a string if provided."),
+    .withMessage("Category ID must be a string if provided.")
+    .isLength({ min: 1 })
+    .withMessage("Category ID cannot be empty if provided."),
+  body("projectId")
+    .optional({ checkFalsy: true })
+    .isString()
+    .withMessage("Project ID must be a string if provided.")
+    .isLength({ min: 1 })
+    .withMessage("Project ID cannot be empty if provided."),
 ];

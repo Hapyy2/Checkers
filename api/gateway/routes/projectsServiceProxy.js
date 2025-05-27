@@ -1,17 +1,17 @@
 const { createProxyMiddleware } = require("http-proxy-middleware");
 
-const errorServiceProxy = (errorServiceUrl) => {
-  if (!errorServiceUrl) {
+const projectsServiceProxy = (projectsServiceUrl) => {
+  if (!projectsServiceUrl) {
     throw new Error(
-      "ERROR_SERVICE_INTERNAL_URL is not defined in .env for API Gateway"
+      "PROJECTS_API_INTERNAL_URL is not defined in .env for API Gateway"
     );
   }
 
   return createProxyMiddleware({
-    target: errorServiceUrl,
+    target: projectsServiceUrl,
     changeOrigin: true,
     pathRewrite: {
-      "^/gw/errors": "/api/errors",
+      "^/gw/projects": "/api/v1/projects",
     },
     timeout: 60000,
     proxyTimeout: 300000,
@@ -28,13 +28,13 @@ const errorServiceProxy = (errorServiceUrl) => {
         }
       }
       console.log(
-        `[HPM errors] Proxying request from ${req.originalUrl} to ${errorServiceUrl}${proxyReq.path}`
+        `[HPM projects] Proxying request from ${req.originalUrl} to ${projectsServiceUrl}${proxyReq.path}`
       );
     },
     onError: (err, req, res, target) => {
       console.error(
-        `[HPM errors] Proxying to ${
-          target ? target.href : "error-service"
+        `[HPM projects] Proxying to ${
+          target ? target.href : "projects-api"
         } failed:`,
         err
       );
@@ -43,21 +43,21 @@ const errorServiceProxy = (errorServiceUrl) => {
       }
       if (res && typeof res.status === "function") {
         res.status(503).json({
-          message: "Error connecting to the Error Service.",
+          message: "Error connecting to the Projects Service.",
           proxyError: err.message,
         });
       } else {
         console.error(
-          "[HPM errors onError] Cannot send error response, res is not valid."
+          "[HPM projects onError] Cannot send error response, res is not valid."
         );
       }
     },
     onProxyRes: (proxyRes, req, res) => {
       console.log(
-        `[HPM errors onProxyRes] For ${req.method} ${req.originalUrl}, received response from error-service: ${proxyRes.statusCode}`
+        `[HPM projects onProxyRes] For ${req.method} ${req.originalUrl}, received response from projects-api: ${proxyRes.statusCode}`
       );
     },
   });
 };
 
-module.exports = errorServiceProxy;
+module.exports = projectsServiceProxy;

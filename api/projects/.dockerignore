@@ -1,0 +1,16 @@
+node_modules
+npm-debug.log
+.env
+.env.local
+.env.*.local
+coverage
+.nyc_output
+.git
+.gitignore
+README.md
+.eslintrc
+.prettierrc
+tests
+__tests__
+*.test.js
+*.spec.js

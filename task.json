@@ -1,0 +1,33 @@
+[
+  {
+    "title": "Zaplanować wakacje (JSON)",
+    "description": "Wybrać miejsce, zarezerwować loty i hotel.",
+    "priority": "HIGH",
+    "status": "TODO",
+    "dueDate": "2026-07-01T00:00:00.000Z",
+    "categoryName": "Osobiste",
+    "projectId": "istniejacy_projekt_id_1"
+  },
+  {
+    "title": "Nauczyć się nowej technologii (JSON)",
+    "description": "Kurs online i mały projekt.",
+    "priority": "MEDIUM",
+    "status": "IN_PROGRESS",
+    "categoryName": "Rozwój"
+  },
+  {
+    "title": "Szybkie zadanie codzienne (JSON)"
+  },
+  {
+    "title": "Zadanie z nieistniejącym projektem (JSON)",
+    "priority": "LOW",
+    "categoryName": "Testowanie",
+    "projectId": "nieistniejacy_projekt_id_ABC"
+  },
+  {
+    "title": "Kolejne zadanie dla Projektu Alfa (JSON)",
+    "status": "DONE",
+    "categoryName": "Projekt Alfa",
+    "projectId": "istniejacy_projekt_id_1"
+  }
+]

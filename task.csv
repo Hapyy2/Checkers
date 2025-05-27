@@ -1,0 +1,9 @@
+title,description,priority,status,dueDate,categoryName,projectId
+"Pilne zadanie projektowe","Dokładny opis pilnego zadania",HIGH,TODO,2025-12-01,"Projekt Alfa","istniejacy_projekt_id_1"
+"Cotygodniowe spotkanie",,MEDIUM,IN_PROGRESS,,,
+"Przegląd kodu","Sprawdzić pull requesty",LOW,TODO,2025-11-15,"Development","inny_istniejacy_projekt_id"
+"Zakupy spożywcze",,MEDIUM,TODO,,"Domowe",
+"Napisać dokumentację","Uzupełnić sekcję API",HIGH,IN_PROGRESS,2025-11-20,"Development",
+"Proste zadanie bez szczegółów",,,,,,,
+"Zadanie z nieistniejącym projektem",,LOW,TODO,,"Testowanie","nieistniejacy_projekt_id_XYZ"
+"Kolejne zadanie dla Projektu Alfa",,MEDIUM,DONE,2025-10-10,"Projekt Alfa","istniejacy_projekt_id_1"
