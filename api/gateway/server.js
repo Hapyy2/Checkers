@@ -4,10 +4,16 @@ const helmet = require("helmet");
 const morgan = require("morgan");
 const apiLimiter = require("./config/rateLimit");
 const allProxyRoutes = require("./routes/index");
+const cors = require("cors");
 
 const app = express();
 
 app.use(helmet());
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+  })
+);
 
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
