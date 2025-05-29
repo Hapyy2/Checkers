@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: whattodo
+data:
+  NODE_ENV: "development"
+  KEYCLOAK_EXTERNAL_URL: "http://localhost:30080"
+  KEYCLOAK_SERVICE_NAME: "keycloak-service"
+  KEYCLOAK_SERVICE_PORT: "8080"
+  KEYCLOAK_REALM: "whattodo"
+  API_GATEWAY_EXTERNAL_URL: "http://localhost:30001"
+  API_GATEWAY_SERVICE_NAME: "api-gateway-service"
+  API_GATEWAY_SERVICE_PORT: "3001"
+  API_GATEWAY_AUDIENCE: "api-gateway"
+  API_GATEWAY_M2M_CLIENT_ID: "api-gateway"
+  TASKS_API_SERVICE_NAME: "tasks-api-service"
+  TASKS_API_SERVICE_PORT: "3100"
+  TASKS_API_M2M_CLIENT_ID: "tasks-service"
+  PROJECTS_API_SERVICE_NAME: "projects-api-service"
+  PROJECTS_API_SERVICE_PORT: "3200"
+  PROJECTS_API_M2M_CLIENT_ID: "projects-service"
+  ERROR_SERVICE_NAME: "error-service"
+  ERROR_SERVICE_PORT: "3400"
+  POSTGRES_HOST: "postgres-service"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "tododb"
+  POSTGRES_USER: "todoapp"
+  MONGO_HOST: "mongodb-service"
+  MONGO_PORT: "27017"
+  MONGO_DB: "tododb"
+  MONGO_USER: "todoapp"
+  SERVICE_NAME_TASKS: "tasks-api"
+  LOG_LEVEL_TASKS: "dev"
+  SERVICE_NAME_PROJECTS: "projects-api"
+  LOG_LEVEL_PROJECTS: "dev"
+  FRONTEND_KEYCLOAK_CLIENT_ID: "frontend-app"
+  FRONTEND_SERVICE_PORT: "3000"

@@ -1,34 +1,35 @@
-# ETAP 1: Budowanie aplikacji Next.js
-FROM node:23-slim AS build
+FROM node:20-alpine AS builder
 
-# Ustawiamy katalog roboczy
 WORKDIR /app
 
-# Kopiujemy plik package.json z zależnościami
 COPY package*.json ./
 
-# Instalujemy zależności
-RUN npm ci
+RUN npm install --frozen-lockfile
 
-# Kopiujemy cały kod źródłowy
 COPY . .
 
-# Budujemy aplikację - Next.js tworzy folder .next
 RUN npm run build
 
-# ETAP 2: Tworzenie kontenera produkcyjnego
-FROM node:23-slim
+
+FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-# Kopiujemy pliki potrzebne do uruchomienia aplikacji
-COPY --from=build /app/package*.json ./
-COPY --from=build /app/public ./public
-COPY --from=build /app/.next ./.next
-COPY --from=build /app/node_modules ./node_modules
+ENV NODE_ENV=production
 
-# Expose port
+RUN addgroup --system --gid 1001 nextjs
+
+RUN adduser --system --uid 1001 nextjs
+
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+
+RUN npm install --omit=dev --frozen-lockfile
+USER nextjs
+
 EXPOSE 3000
 
-# Uruchamiamy Next.js w trybie produkcyjnym
-CMD ["npm", "run", "start"]
+CMD ["npm", "start"]

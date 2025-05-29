@@ -1,0 +1,86 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-external-service
+  namespace: whattodo
+  labels:
+    app: frontend
+spec:
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http-frontend
+      nodePort: 30000
+  selector:
+    app: frontend
+  type: NodePort
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: whattodo
+  labels:
+    app: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: hapyy2/frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+              name: http-frontend
+          env:
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: NODE_ENV
+            - name: NEXT_PUBLIC_KEYCLOAK_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: KEYCLOAK_EXTERNAL_URL
+            - name: NEXT_PUBLIC_KEYCLOAK_REALM
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: KEYCLOAK_REALM
+            - name: NEXT_PUBLIC_KEYCLOAK_CLIENT_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: FRONTEND_KEYCLOAK_CLIENT_ID
+            - name: NEXT_PUBLIC_API_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: API_GATEWAY_EXTERNAL_URL
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: FRONTEND_SERVICE_PORT
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http-frontend
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http-frontend
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 2

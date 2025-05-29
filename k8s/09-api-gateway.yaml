@@ -1,0 +1,143 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway-external-service
+  namespace: whattodo
+  labels:
+    app: api-gateway
+spec:
+  ports:
+    - name: http
+      port: 3001
+      targetPort: http-gateway
+      nodePort: 30001
+  selector:
+    app: api-gateway
+  type: NodePort
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: whattodo
+  labels:
+    app: api-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+        - name: api-gateway
+          image: hapyy2/api-gateway:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3001
+              name: http-gateway
+          env:
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: NODE_ENV
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: API_GATEWAY_SERVICE_PORT
+            - name: TASKS_API_SERVICE_NAME_CM
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: TASKS_API_SERVICE_NAME
+            - name: TASKS_API_SERVICE_PORT_CM
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: TASKS_API_SERVICE_PORT
+            - name: TASKS_API_INTERNAL_URL
+              value: "http://$(TASKS_API_SERVICE_NAME_CM):$(TASKS_API_SERVICE_PORT_CM)"
+            - name: PROJECTS_API_SERVICE_NAME_CM
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: PROJECTS_API_SERVICE_NAME
+            - name: PROJECTS_API_SERVICE_PORT_CM
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: PROJECTS_API_SERVICE_PORT
+            - name: PROJECTS_API_INTERNAL_URL
+              value: "http://$(PROJECTS_API_SERVICE_NAME_CM):$(PROJECTS_API_SERVICE_PORT_CM)"
+            - name: ERROR_SERVICE_NAME_CM
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: ERROR_SERVICE_NAME
+            - name: ERROR_SERVICE_PORT_CM
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: ERROR_SERVICE_PORT
+            - name: ERROR_SERVICE_INTERNAL_URL
+              value: "http://$(ERROR_SERVICE_NAME_CM):$(ERROR_SERVICE_PORT_CM)"
+            - name: KEYCLOAK_REALM_CM
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: KEYCLOAK_REALM
+            - name: KEYCLOAK_EXTERNAL_URL_CM
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: KEYCLOAK_EXTERNAL_URL
+            - name: KEYCLOAK_INTERNAL_SERVICE_NAME_CM
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: KEYCLOAK_SERVICE_NAME
+            - name: KEYCLOAK_INTERNAL_SERVICE_PORT_CM
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: KEYCLOAK_SERVICE_PORT
+            - name: API_GATEWAY_KEYCLOAK_URL
+              value: "http://$(KEYCLOAK_INTERNAL_SERVICE_NAME_CM):$(KEYCLOAK_INTERNAL_SERVICE_PORT_CM)"
+            - name: API_GATEWAY_KEYCLOAK_REALM
+              value: "$(KEYCLOAK_REALM_CM)"
+            - name: API_GATEWAY_KEYCLOAK_ISSUER
+              value: "$(KEYCLOAK_EXTERNAL_URL_CM)/realms/$(KEYCLOAK_REALM_CM)"
+            - name: API_GATEWAY_KEYCLOAK_AUDIENCE
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: API_GATEWAY_AUDIENCE
+            - name: API_GATEWAY_M2M_CLIENT_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: API_GATEWAY_M2M_CLIENT_ID
+            - name: API_GATEWAY_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-m2m-secrets
+                  key: API_GATEWAY_CLIENT_SECRET
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http-gateway
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 1
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http-gateway
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 1

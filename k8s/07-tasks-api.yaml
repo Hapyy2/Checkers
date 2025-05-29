@@ -1,0 +1,142 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: tasks-api-service
+  namespace: whattodo
+  labels:
+    app: tasks-api
+spec:
+  ports:
+    - port: 3100
+      targetPort: http-tasks
+      name: http
+  selector:
+    app: tasks-api
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tasks-api
+  namespace: whattodo
+  labels:
+    app: tasks-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tasks-api
+  template:
+    metadata:
+      labels:
+        app: tasks-api
+    spec:
+      containers:
+        - name: tasks-api
+          image: hapyy2/tasks-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3100
+              name: http-tasks
+          env:
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: NODE_ENV
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: TASKS_API_SERVICE_PORT
+            - name: SERVICE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: SERVICE_NAME_TASKS
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: LOG_LEVEL_TASKS
+            - name: POSTGRES_USER_CM
+              valueFrom:
+                { configMapKeyRef: { name: app-config, key: POSTGRES_USER } }
+            - name: POSTGRES_PASSWORD_SECRET
+              valueFrom:
+                { secretKeyRef: { name: db-passwords, key: POSTGRES_PASSWORD } }
+            - name: POSTGRES_HOST_CM
+              valueFrom:
+                { configMapKeyRef: { name: app-config, key: POSTGRES_HOST } }
+            - name: POSTGRES_PORT_CM
+              valueFrom:
+                { configMapKeyRef: { name: app-config, key: POSTGRES_PORT } }
+            - name: POSTGRES_DB_CM
+              valueFrom:
+                { configMapKeyRef: { name: app-config, key: POSTGRES_DB } }
+            - name: DATABASE_URL
+              value: "postgresql://$(POSTGRES_USER_CM):$(POSTGRES_PASSWORD_SECRET)@$(POSTGRES_HOST_CM):$(POSTGRES_PORT_CM)/$(POSTGRES_DB_CM)?schema=public"
+            - name: KC_SVC_URL_tasks
+              value: "http://$(KEYCLOAK_SERVICE_NAME_CM):$(KEYCLOAK_SERVICE_PORT_CM)"
+            - name: KEYCLOAK_SERVICE_NAME_CM
+              valueFrom:
+                {
+                  configMapKeyRef:
+                    { name: app-config, key: KEYCLOAK_SERVICE_NAME },
+                }
+            - name: KEYCLOAK_SERVICE_PORT_CM
+              valueFrom:
+                {
+                  configMapKeyRef:
+                    { name: app-config, key: KEYCLOAK_SERVICE_PORT },
+                }
+            - name: TASKS_API_KEYCLOAK_URL
+              value: "$(KC_SVC_URL_tasks)"
+            - name: TASKS_API_KEYCLOAK_REALM
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: KEYCLOAK_REALM
+            - name: TASKS_API_CLIENT_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: TASKS_API_M2M_CLIENT_ID
+            - name: TASKS_API_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-m2m-secrets
+                  key: TASKS_API_CLIENT_SECRET
+            - name: GW_SVC_URL_tasks
+              value: "http://$(API_GATEWAY_SERVICE_NAME_CM):$(API_GATEWAY_SERVICE_PORT_CM)"
+            - name: API_GATEWAY_SERVICE_NAME_CM
+              valueFrom:
+                {
+                  configMapKeyRef:
+                    { name: app-config, key: API_GATEWAY_SERVICE_NAME },
+                }
+            - name: API_GATEWAY_SERVICE_PORT_CM
+              valueFrom:
+                {
+                  configMapKeyRef:
+                    { name: app-config, key: API_GATEWAY_SERVICE_PORT },
+                }
+            - name: API_GATEWAY_INTERNAL_ERROR_ENDPOINT
+              value: "$(GW_SVC_URL_tasks)/gw/errors/log"
+          readinessProbe:
+            httpGet:
+              path: /api/v1/
+              port: http-tasks
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /api/v1/
+              port: http-tasks
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3

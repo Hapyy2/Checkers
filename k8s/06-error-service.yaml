@@ -1,0 +1,97 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: error-service
+  namespace: whattodo
+  labels:
+    app: error-service
+spec:
+  ports:
+    - port: 3400
+      targetPort: http-errors
+      name: http
+  selector:
+    app: error-service
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: error-service
+  namespace: whattodo
+  labels:
+    app: error-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: error-service
+  template:
+    metadata:
+      labels:
+        app: error-service
+    spec:
+      containers:
+        - name: error-service
+          image: hapyy2/error-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3400
+              name: http-errors
+          env:
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: NODE_ENV
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: ERROR_SERVICE_PORT
+            - name: SERVICE_NAME
+              value: "error-service"
+            - name: MONGO_USER_CM
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: MONGO_USER
+            - name: MONGO_PASSWORD_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: db-passwords
+                  key: MONGO_PASSWORD
+            - name: MONGO_HOST_CM
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: MONGO_HOST
+            - name: MONGO_PORT_CM
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: MONGO_PORT
+            - name: MONGO_DB_CM
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: MONGO_DB
+            - name: MONGO_URL
+              value: "mongodb://$(MONGO_USER_CM):$(MONGO_PASSWORD_SECRET)@$(MONGO_HOST_CM):$(MONGO_PORT_CM)/$(MONGO_DB_CM)?authSource=admin"
+          readinessProbe:
+            httpGet:
+              path: /api/errors/health
+              port: http-errors
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/errors/health
+              port: http-errors
+            initialDelaySeconds: 45
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 3
