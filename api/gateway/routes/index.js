@@ -41,6 +41,10 @@ if (ERROR_SERVICE_URL) {
 if (TASKS_SERVICE_URL) {
   const tasksProxy = tasksServiceProxyHandler(TASKS_SERVICE_URL);
   router.use("/gw/tasks", authenticateToken, tasksProxy);
+  router.use("/gw/categories", authenticateToken, tasksProxy);
+  router.use("/gw/import", authenticateToken, tasksProxy);
+  router.use("/gw/export", authenticateToken, tasksProxy);
+  router.use("/gw/reports", authenticateToken, tasksProxy);
   console.log(
     `Tasks Service proxy enabled for /gw/tasks, targeting ${TASKS_SERVICE_URL}`
   );

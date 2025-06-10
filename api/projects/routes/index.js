@@ -10,6 +10,6 @@ router.get("/info", (req, res) => {
   });
 });
 
-router.use("/", projectRoutes);
+router.use("/projects", projectRoutes);
 
 module.exports = router;

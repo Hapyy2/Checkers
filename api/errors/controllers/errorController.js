@@ -66,7 +66,7 @@ exports.logError = async (req, res) => {
     } = req.body;
 
     const newErrorLog = new ErrorLog({
-      timestamp: timestamp ? new Date(timestamp) : new Date(), // Default to now if not provided
+      timestamp: timestamp ? new Date(timestamp) : new Date(),
       sourceService,
       errorMessage,
       errorCode,
@@ -108,7 +108,7 @@ exports.getErrors = async (req, res) => {
       sort = { timestamp: 1 };
     }
 
-    const errorLogs = await ErrorLog.find(query).sort(sort).limit(limit).lean(); // .lean() for faster queries if you don't need Mongoose documents
+    const errorLogs = await ErrorLog.find(query).sort(sort).limit(limit).lean();
 
     const totalErrors = await ErrorLog.countDocuments(query);
 

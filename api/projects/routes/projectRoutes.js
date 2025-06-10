@@ -1,53 +1,35 @@
 const express = require("express");
 const projectController = require("../controllers/projectController");
 const {
-  validateProject,
+  validateProjectCreate,
   validateProjectUpdate,
+  validateProjectDelete,
   validateAddMember,
-  validateUpdateMemberRole,
-  validateProjectId,
-  validateProjectAndUserId,
+  validateUpdateMember,
+  validateRemoveMember,
 } = require("../middleware/validation/projectValidator");
 
 const router = express.Router();
 
-// === Trasy dla Projektów ===
-router.post("/", validateProject, projectController.createProject);
+// --- Trasy dla zasobu Projekt ---
+router.post("/", validateProjectCreate, projectController.createProject);
 router.get("/", projectController.getProjects);
-router.get("/:id", projectController.getProjectById);
-router.put("/:id", validateProjectUpdate, projectController.updateProject);
-router.delete("/:id", projectController.deleteProject);
+router.put("/", validateProjectUpdate, projectController.updateProject);
+router.delete("/", validateProjectDelete, projectController.deleteProject);
 
-// === Trasy dla Członków Projektu ===
-router.post(
-  "/:projectId/members",
-  validateAddMember,
-  projectController.addProjectMember
-);
-
-router.delete(
-  "/:projectId/members/:userId",
-  validateProjectAndUserId,
-  projectController.removeProjectMember
-);
-
+// --- Trasy dla pod-zasobów ---
+router.get("/tasks", projectController.getProjectTasks);
+router.get("/members", projectController.getProjectMembers);
+router.post("/members", validateAddMember, projectController.addProjectMember);
 router.put(
-  "/:projectId/members/:userId",
-  validateUpdateMemberRole,
+  "/members",
+  validateUpdateMember,
   projectController.updateProjectMemberRole
 );
-
-router.get(
-  "/:projectId/members",
-  validateProjectId,
-  projectController.getProjectMembers
-);
-
-// === Trasy dla Zadań w Projekcie ===
-router.get(
-  "/:projectId/tasks",
-  validateProjectId,
-  projectController.getProjectTasks
+router.delete(
+  "/members",
+  validateRemoveMember,
+  projectController.removeProjectMember
 );
 
 module.exports = router;

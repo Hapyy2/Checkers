@@ -11,7 +11,7 @@ const projectsServiceProxy = (projectsServiceUrl) => {
     target: projectsServiceUrl,
     changeOrigin: true,
     pathRewrite: {
-      "^/gw/projects": "/api/v1/projects",
+      "^/gw/projects": "/projects",
     },
     timeout: 60000,
     proxyTimeout: 300000,

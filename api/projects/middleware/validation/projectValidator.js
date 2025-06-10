@@ -1,84 +1,62 @@
-const { body, param } = require("express-validator");
+const { body, query } = require("express-validator");
 const { ProjectRole } = require("@prisma/client");
 
-exports.validateProject = [
+exports.validateProjectCreate = [
   body("name")
     .trim()
     .notEmpty()
     .withMessage("Project name is required.")
-    .isLength({ min: 3, max: 100 })
-    .withMessage("Project name must be between 3 and 100 characters."),
-  body("description")
-    .optional()
-    .trim()
-    .isLength({ max: 500 })
-    .withMessage("Description cannot exceed 500 characters."),
-  body("dueDate")
-    .optional({ checkFalsy: true })
-    .isISO8601()
-    .withMessage("Invalid due date format. Must be ISO8601.")
-    .toDate(),
+    .isLength({ min: 3, max: 100 }),
+  body("description").optional().trim().isLength({ max: 500 }),
+  body("dueDate").optional({ checkFalsy: true }).isISO8601().toDate(),
 ];
 
 exports.validateProjectUpdate = [
-  body("name")
-    .optional()
-    .trim()
+  body("id")
     .notEmpty()
-    .withMessage("Project name cannot be empty if provided.")
-    .isLength({ min: 3, max: 100 })
-    .withMessage("Project name must be between 3 and 100 characters."),
+    .isString()
+    .withMessage("Project ID is required for update."),
+  body("name").optional().trim().notEmpty().isLength({ min: 3, max: 100 }),
   body("description")
     .optional({ checkFalsy: true })
     .trim()
-    .isLength({ max: 500 })
-    .withMessage("Description cannot exceed 500 characters."),
-  body("dueDate")
-    .optional({ checkFalsy: true })
-    .isISO8601()
-    .withMessage("Invalid due date format. Must be ISO8601.")
-    .toDate(),
+    .isLength({ max: 500 }),
+  body("dueDate").optional({ checkFalsy: true }).isISO8601().toDate(),
+];
+
+exports.validateProjectDelete = [
+  body("id")
+    .notEmpty()
+    .isString()
+    .withMessage("Project ID is required for deletion."),
 ];
 
 exports.validateAddMember = [
-  body("userId")
-    .trim()
+  body("projectId")
     .notEmpty()
-    .withMessage("User ID of the member to add is required.")
     .isString()
-    .withMessage("User ID must be a string."),
-  body("role")
-    .optional()
-    .trim()
-    .isIn(Object.values(ProjectRole))
-    .withMessage(
-      `Invalid role. Must be one of: ${Object.values(ProjectRole).join(", ")}`
-    ),
-  param("projectId").isString().withMessage("Project ID must be a string."),
+    .withMessage("Project ID is required."),
+  body("userId").notEmpty().isString().withMessage("User ID is required."),
+  body("role").optional().trim().isIn(Object.values(ProjectRole)),
 ];
 
-exports.validateUpdateMemberRole = [
+exports.validateUpdateMember = [
+  body("projectId")
+    .notEmpty()
+    .isString()
+    .withMessage("Project ID is required."),
+  body("userId").notEmpty().isString().withMessage("User ID is required."),
   body("role")
-    .trim()
     .notEmpty()
     .withMessage("Role is required.")
-    .isIn(Object.values(ProjectRole))
-    .withMessage(
-      `Invalid role. Must be one of: ${Object.values(ProjectRole).join(", ")}`
-    ),
-  param("projectId").isString().withMessage("Project ID must be a string."),
-  param("userId").isString().withMessage("User ID must be a string."),
+    .trim()
+    .isIn(Object.values(ProjectRole)),
 ];
 
-exports.validateProjectId = [
-  param("projectId")
+exports.validateRemoveMember = [
+  body("projectId")
+    .notEmpty()
     .isString()
-    .withMessage("Project ID must be a string (CUID)."),
-];
-
-exports.validateProjectAndUserId = [
-  param("projectId")
-    .isString()
-    .withMessage("Project ID must be a string (CUID)."),
-  param("userId").isString().withMessage("User ID must be a string."),
+    .withMessage("Project ID is required."),
+  body("userId").notEmpty().isString().withMessage("User ID is required."),
 ];

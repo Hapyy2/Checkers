@@ -18,7 +18,7 @@ if (process.env.NODE_ENV === "development") {
   app.use(morgan(process.env.LOG_LEVEL || "short"));
 }
 
-app.use("/api/v1", mainApiRoutes);
+app.use("/", mainApiRoutes);
 
 app.use(async (err, req, res, next) => {
   console.error(

@@ -11,7 +11,11 @@ const tasksServiceProxy = (tasksServiceUrl) => {
     target: tasksServiceUrl,
     changeOrigin: true,
     pathRewrite: {
-      "^/gw/tasks": "/api/v1",
+      "^/gw/tasks": "/tasks",
+      "^/gw/categories": "/categories",
+      "^/gw/import": "/import",
+      "^/gw/export": "/export",
+      "^/gw/reports": "/reports",
     },
     timeout: 60000,
     proxyTimeout: 300000,

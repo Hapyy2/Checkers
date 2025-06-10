@@ -6,42 +6,38 @@ exports.validateTask = [
     .trim()
     .notEmpty()
     .withMessage("Task title is required.")
-    .isLength({ min: 3, max: 100 })
-    .withMessage("Task title must be between 3 and 100 characters."),
+    .isLength({ min: 3, max: 100 }),
   body("description")
     .optional({ checkFalsy: true })
     .trim()
-    .isLength({ max: 500 })
-    .withMessage("Description cannot exceed 500 characters."),
-  body("priority")
-    .optional()
-    .isIn(Object.values(TaskPriority))
-    .withMessage(
-      `Invalid priority. Must be one of: ${Object.values(TaskPriority).join(
-        ", "
-      )}`
-    ),
-  body("status")
-    .optional()
-    .isIn(Object.values(TaskStatus))
-    .withMessage(
-      `Invalid status. Must be one of: ${Object.values(TaskStatus).join(", ")}`
-    ),
-  body("dueDate")
-    .optional({ checkFalsy: true })
-    .isISO8601()
-    .withMessage("Invalid due date format. Must be ISO8601.")
-    .toDate(),
-  body("categoryId")
-    .optional({ checkFalsy: true })
+    .isLength({ max: 500 }),
+  body("priority").optional().isIn(Object.values(TaskPriority)),
+  body("status").optional().isIn(Object.values(TaskStatus)),
+  body("dueDate").optional({ checkFalsy: true }).isISO8601().toDate(),
+  body("categoryId").optional({ checkFalsy: true }).isString(),
+  body("projectId").optional({ checkFalsy: true }).isString(),
+];
+
+exports.validateTaskUpdate = [
+  body("id")
+    .notEmpty()
     .isString()
-    .withMessage("Category ID must be a string if provided.")
-    .isLength({ min: 1 })
-    .withMessage("Category ID cannot be empty if provided."),
-  body("projectId")
+    .withMessage("Task ID is required for update."),
+  body("title").optional().trim().notEmpty().isLength({ min: 3, max: 100 }),
+  body("description")
     .optional({ checkFalsy: true })
+    .trim()
+    .isLength({ max: 500 }),
+  body("priority").optional().isIn(Object.values(TaskPriority)),
+  body("status").optional().isIn(Object.values(TaskStatus)),
+  body("dueDate").optional({ checkFalsy: true }).isISO8601().toDate(),
+  body("categoryId").optional({ checkFalsy: true }).isString(),
+  body("projectId").optional({ checkFalsy: true }).isString(),
+];
+
+exports.validateTaskDelete = [
+  body("id")
+    .notEmpty()
     .isString()
-    .withMessage("Project ID must be a string if provided.")
-    .isLength({ min: 1 })
-    .withMessage("Project ID cannot be empty if provided."),
+    .withMessage("Task ID is required for deletion."),
 ];

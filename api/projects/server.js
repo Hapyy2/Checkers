@@ -20,7 +20,7 @@ if (process.env.NODE_ENV === "development") {
   app.use(morgan(process.env.LOG_LEVEL || "short"));
 }
 
-app.use("/api/v1/projects", mainProjectRoutes);
+app.use("/", mainProjectRoutes);
 
 app.get(`/${SERVICE_NAME}/health`, (req, res) => {
   res.status(200).json({
